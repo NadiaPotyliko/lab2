@@ -1,79 +1,49 @@
-#define WINVER 0x0502
 #include <windows.h>
 #include <stdio.h>
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <sddl.h>
 #include <conio.h>
 
-int main()
+int main( int argc, char *argv[] )
 {
-  BOOL   fReturnCode; 
-  DWORD  cbMessages;
-  DWORD  cbMsgNumber;
   HANDLE hMailslot;
-  LPSTR  lpszMailslotName = "\\\\.\\mailslot\\$Channel$";
+  char   szMailslotName[256];
   char   szBuf[512];
-  DWORD  cbRead;
-  SECURITY_ATTRIBUTES attributes;
-  attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
-  attributes.bInheritHandle = TRUE;
-  attributes.lpSecurityDescriptor = NULL;
+  DWORD  cbWritten;
+
+  printf("Mailslot KLIENT\n");
+
+   if(argc > 1)
+    sprintf(szMailslotName, "\\\\%s\\mailslot\\$Channel$",
+      argv[1]);
   
-  printf("Mailslot SERVER\n");
-  
-  hMailslot = CreateMailslot(
-    lpszMailslotName, 0,
-    MAILSLOT_WAIT_FOREVER,&attributes);
+  else
+    strcpy(szMailslotName, "\\\\.\\mailslot\\$Channel$");
+
+   hMailslot = CreateFile(
+    szMailslotName, GENERIC_WRITE,
+    FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     
-  if(hMailslot == INVALID_HANDLE_VALUE)
+   if(hMailslot == INVALID_HANDLE_VALUE)
   {
-    fprintf(stdout,"CreateMailslot: Error %ld\n", 
+    fprintf(stdout,"CreateFile: Error %ld\n", 
       GetLastError());
     getch();
     return 0;
   }
 
-  fprintf(stdout,"Mailslot created\n"); 
-
+   fprintf(stdout,"\nConnected. Enter 'exit' to terminate\n"); 
+  
   while(1)
   {
-   
-    fReturnCode = GetMailslotInfo(
-      hMailslot, NULL, &cbMessages,
-      &cbMsgNumber, NULL);
-
-    if(!fReturnCode)
-    {
-      fprintf(stdout,"GetMailslotInfo: Error %ld\n", 
-        GetLastError());
-      getch();
-      break;
-    }
-
-    if(cbMsgNumber != 0)
-    {
-      if(ReadFile(hMailslot, szBuf, 512, &cbRead, NULL))
-      {
-        // ??????? ???????? ?????? ?? ??????? 
-        printf("Received: <%s>\n", szBuf);
-      
-        if(!strcmp(szBuf, "exit"))
-          break;
-      }
-      else
-      {
-        fprintf(stdout,"ReadFile: Error %ld\n", 
-          GetLastError());
-        getch();
-        break;
-      }
-    }
+    printf("cmd>");
+    gets(szBuf);
     
-    Sleep(500);
+    if(!WriteFile(hMailslot, szBuf, strlen(szBuf) + 1,
+      &cbWritten, NULL))
+      break;
+    
+    if(!strcmp(szBuf, "exit"))
+      break;
   }
-
   CloseHandle(hMailslot);
   return 0;
 }
